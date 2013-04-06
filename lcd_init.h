@@ -11,6 +11,7 @@
 #ifdef FORAERY
 	#include "board.h"
 	using namespace aery;
+	#define LED AVR32_PIN_PC04
 #endif
 
 #ifdef FORPC
@@ -18,7 +19,7 @@
 	#include <SFML/Graphics.hpp>
 	#include "simscreen.h"
 	void initGL(int xkoko, int ykoko);
-	extern sf::RenderWindow ohjelma;
+	extern sf::RenderWindow sfmlwindow;
 #endif
 	void init();
 #endif

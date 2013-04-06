@@ -8,11 +8,23 @@
 //data pins, db00 - db15 are portb 0 - 15 pins
 	
 //controlling pins 
+
+
+/*
 const uint8_t PIN_RS = AVR32_PIN_PB16;
 const uint8_t PIN_WR = AVR32_PIN_PB17;
 const uint8_t PIN_RD = AVR32_PIN_PB18;
 const uint8_t PIN_CS = AVR32_PIN_PB19;
 const uint8_t PIN_RESET = AVR32_PIN_PB20;
+*/
+
+const uint8_t PIN_RS = AVR32_PIN_PA23;
+const uint8_t PIN_WR = AVR32_PIN_PA24;
+const uint8_t PIN_RD = AVR32_PIN_PA25;
+const uint8_t PIN_CS = AVR32_PIN_PA26;
+const uint8_t PIN_RESET = AVR32_PIN_PA27;
+
+
 // low level
 void lcd_com(uint8_t command)
 {
@@ -24,12 +36,13 @@ void lcd_com(uint8_t command)
 	*/
 	
 	//set cs, rs, and data pins low, hard-coding a value here does not incr performance.
-	AVR32_GPIO_LOCAL.port[1].ovrc = (1 << GPIO_NUM2PIN(PIN_CS)) | (1 << GPIO_NUM2PIN(PIN_RS)) | 0xFFFF;
+	AVR32_GPIO_LOCAL.port[1].ovrc = 0xFFFF;
+	AVR32_GPIO_LOCAL.port[0].ovrc = (1 << GPIO_NUM2PIN(PIN_CS)) | (1 << GPIO_NUM2PIN(PIN_RS));
 	//set data pins
 	AVR32_GPIO_LOCAL.port[1].ovrs = command;
 	//pulse wr pins, and set cs, rs back on
-	AVR32_GPIO_LOCAL.port[1].ovrc = (1 << GPIO_NUM2PIN(PIN_WR));
-	AVR32_GPIO_LOCAL.port[1].ovrs = (1 << GPIO_NUM2PIN(PIN_WR)) | (1 << GPIO_NUM2PIN(PIN_CS)) | (1 << GPIO_NUM2PIN(PIN_RS));
+	AVR32_GPIO_LOCAL.port[0].ovrc = (1 << GPIO_NUM2PIN(PIN_WR));
+	AVR32_GPIO_LOCAL.port[0].ovrs = (1 << GPIO_NUM2PIN(PIN_WR)) | (1 << GPIO_NUM2PIN(PIN_CS)) | (1 << GPIO_NUM2PIN(PIN_RS));
 }
 
 void lcd_data(uint16_t data)
@@ -40,10 +53,11 @@ void lcd_data(uint16_t data)
 	lportb->ovrc = (1 << GPIO_NUM2PIN(PIN_WR));
 	lportb->ovrs = (1 << GPIO_NUM2PIN(PIN_WR)) | (1 << GPIO_NUM2PIN(PIN_CS));
 	*/
-	AVR32_GPIO_LOCAL.port[1].ovrc = (1 << GPIO_NUM2PIN(PIN_CS)) | 0xFFFF;
+	AVR32_GPIO_LOCAL.port[1].ovrc = 0xFFFF;
+	AVR32_GPIO_LOCAL.port[0].ovrc = (1 << GPIO_NUM2PIN(PIN_CS));
 	AVR32_GPIO_LOCAL.port[1].ovrs = data;
-	AVR32_GPIO_LOCAL.port[1].ovrc = (1 << GPIO_NUM2PIN(PIN_WR));
-	AVR32_GPIO_LOCAL.port[1].ovrs = (1 << GPIO_NUM2PIN(PIN_WR)) | (1 << GPIO_NUM2PIN(PIN_CS));
+	AVR32_GPIO_LOCAL.port[0].ovrc = (1 << GPIO_NUM2PIN(PIN_WR));
+	AVR32_GPIO_LOCAL.port[0].ovrs = (1 << GPIO_NUM2PIN(PIN_WR)) | (1 << GPIO_NUM2PIN(PIN_CS));
 }
 
 void command_lcd(uint8_t command, uint16_t data)
@@ -54,6 +68,7 @@ void command_lcd(uint8_t command, uint16_t data)
 
 #endif
 //aery32 ends here
+
 #ifdef FORPC
 void lcd_com(uint8_t command)
 {

@@ -18,5 +18,10 @@ void simscreen_setpixel(uint16_t color);
 
 void simscreen_render();
 
+inline void delay_ms(int32_t time)
+{
+	sf::sleep(sf::milliseconds(time));
+}
+
 #endif
 #endif

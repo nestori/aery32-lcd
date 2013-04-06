@@ -58,7 +58,6 @@ int32_t find_max(int32_t a, int32_t b, int32_t c)
 	return temp;
 }
 
-
 //pseudorandom number generator code
 //random seeds
 uint32_t prng_seed1 = 1123477;

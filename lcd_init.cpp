@@ -34,8 +34,7 @@
 	int xsize = SCREENX, ysize = SCREENY;
 	//depth buffer, stencilbuffer, antialiasing, major, minor
 	sf::ContextSettings context(8,2,0,2,1);
-	//actual window created, +1 to sizes because damn glOrtho shenanigans
-	sf::RenderWindow sfmlwindow(sf::VideoMode(xsize+1, ysize+1, 32), "aery", 7U, context);
+	sf::RenderWindow sfmlwindow(sf::VideoMode(xsize, ysize, 32), "aery", 7U, context);
 #endif
 
 void init()
@@ -43,15 +42,24 @@ void init()
 	#ifdef FORAERY
 	
 	board::init();
+	gpio_init_pin(LED, GPIO_OUTPUT);
+	gpio_init_pins(porta, 0xffffffff, GPIO_OUTPUT);
 	gpio_init_pins(portb, 0xffffffff, GPIO_OUTPUT);
 	gpio_enable_localbus();
+	
+	//lets set all pins on port a+b to 0
+	AVR32_GPIO_LOCAL.port[0].ovrc = 0xFFFFFFFF;
+	AVR32_GPIO_LOCAL.port[1].ovrc = 0xFFFFFFFF;
+	
+	
 	//read-pin has to be high during operation
-	lportb->ovrs = (1 << GPIO_NUM2PIN(PIN_RD)) | (1 << GPIO_NUM2PIN(PIN_RESET));
+	lporta->ovrs = (1 << GPIO_NUM2PIN(PIN_RD)) | (1 << GPIO_NUM2PIN(PIN_RESET));
 	delay_ms(15);
-	lportb->ovrc = (1 << GPIO_NUM2PIN(PIN_RESET));
+	lporta->ovrc = (1 << GPIO_NUM2PIN(PIN_RESET));
 	delay_ms(15);
-	lportb->ovrs = (1 << GPIO_NUM2PIN(PIN_RESET));
+	lporta->ovrs = (1 << GPIO_NUM2PIN(PIN_RESET));
 	delay_ms(15);
+
 	//boot up
 	
 	//inits screen to 320x240, switch to SCREENX,SCREENY at some point

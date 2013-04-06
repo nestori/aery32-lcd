@@ -6,6 +6,7 @@
 #include "lcd_defines.h"
 #include "lcd_init.h"
 #include "lcd_graphics.h"
+#include "lcd_math.h"
 
 #ifdef FORPC
 	#include <iostream>
@@ -19,29 +20,67 @@
 	#define END_MEASURING_CYCLES(rv) ((rv) = __builtin_mfsr(AVR32_COUNT))
 #endif
 
-
 int main()
 {
 	init();
-	
-	uint32_t cyclecount = 0;
-	char str[10] = "0";
-	
-	clear_screen(0x1f);
 
-	polygon p = {10,10,20,10,10,20};
+	clear_screen(0x0);
+	uint32_t count;
+	char str[10];
+
+	int16_t centerx = 320/2;
+	int16_t centery = 240/2;
+	int16_t rot = 0;
 	
-	START_MEASURING_CYCLES();
-	draw_polygon(p,0xFFFF);
-	draw_rect(40,10,40,10,0xFFFF);
-	END_MEASURING_CYCLES(cyclecount);
+	polygon p0, p1, p2;
 	
-	#ifdef FORAERY
-		itoa(cyclecount,str);
-	#endif
-	draw_text(str,0,0,0xFFFF);
-	cyclecount = 0;
 	
+	for (;;)
+	{	
+		rot++;
+		if (rot >= 360) rot = 0;
+		count  = 0;
+		START_MEASURING_CYCLES();
+		
+		p0.x0 = centerx+lcd_cos(rot+120)*50;
+		p0.y0 = centery+lcd_sin(rot+120)*50;
+		
+		p0.x1 = centerx+lcd_cos(rot+120*2)*50;
+		p0.y1 = centery+lcd_sin(rot+120*2)*50;
+		
+		p0.x2 = centerx+lcd_cos(rot+120*3)*50;
+		p0.y2 = centery+lcd_sin(rot+120*3)*50;
+		
+		p1.x0 = centerx+lcd_cos(rot+120)*50-30;
+		p1.y0 = centery+lcd_sin(rot+120)*50;
+		
+		p1.x1 = centerx+lcd_cos(rot+120*2)*50-30;
+		p1.y1 = centery+lcd_sin(rot+120*2)*50;
+		
+		p1.x2 = centerx+lcd_cos(rot+120*3)*50-30;
+		p1.y2 = centery+lcd_sin(rot+120*3)*50;
+		
+		p2.x0 = centerx+lcd_cos(rot+120)*50+30;
+		p2.y0 = centery+lcd_sin(rot+120)*50;
+		
+		p2.x1 = centerx+lcd_cos(rot+120*2)*50+30;
+		p2.y1 = centery+lcd_sin(rot+120*2)*50;
+		
+		p2.x2 = centerx+lcd_cos(rot+120*3)*50+30;
+		p2.y2 = centery+lcd_sin(rot+120*3)*50;
+		
+		draw_b_poly(p1, 0xF800);
+		draw_b_poly(p0, 0x7E00);
+		draw_b_poly(p2, 0x001F);
+		flush_to_lcd();
+		
+		END_MEASURING_CYCLES(count);
+		#ifdef FORAERY
+		itoa(66000000/count,str);
+		#endif
+		draw_text(str,0,220,0xF800);
+	}
+
 	#ifdef FORPC
 	while (sfmlwindow.isOpen())
 	{
@@ -66,6 +105,29 @@ int main()
 			
 		}
 		//logic
+		
+				rot++;
+		if (rot >= 360) rot = 0;
+		count  = 0;
+		START_MEASURING_CYCLES();
+		
+		p.x0 = centerx+lcd_cos(rot+120)*50;
+		p.y0 = centery+lcd_sin(rot+120)*50;
+		
+		p.x1 = centerx+lcd_cos(rot+120*2)*50;
+		p.y1 = centery+lcd_sin(rot+120*2)*50;
+		
+		p.x2 = centerx+lcd_cos(rot+120*3)*50;
+		p.y2 = centery+lcd_sin(rot+120*3)*50;
+		
+		draw_b_poly(p, 0xF600);
+		flush_to_lcd();
+		
+		END_MEASURING_CYCLES(count);
+		#ifdef FORAERY
+		itoa(count,str);
+		#endif
+		draw_text(str,0,220,0xF800);
 		
 		//render
 		simscreen_render();

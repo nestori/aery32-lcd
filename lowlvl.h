@@ -8,6 +8,7 @@
 #include "lcd_defines.h"
 
 #ifdef FORAERY
+	#include <aery32/all.h>
 	#include "board.h"
 	using namespace aery;
 	
@@ -19,28 +20,37 @@
 	extern const uint8_t PIN_RESET;
 
 	//set data-pins on
-	inline void set_pins(uint16_t data)
+	inline void set_pins()
 	{
-		AVR32_GPIO_LOCAL.port[1].ovrc = (1 << GPIO_NUM2PIN(PIN_CS)) | 0xFFFF;
-		AVR32_GPIO_LOCAL.port[1].ovrs = data;
+		AVR32_GPIO_LOCAL.port[0].ovrc = (1 << GPIO_NUM2PIN(PIN_CS));
+	}
+	inline void set_data(uint16_t data)
+	{
+		AVR32_GPIO_LOCAL.port[1].ovrc = 0xFFFF;
+
+		AVR32_GPIO_LOCAL.port[1].ovrs = data&0x00FF;
+		AVR32_GPIO_LOCAL.port[1].ovrs = data&0xFF00;
+		
 	}
 	//pulse write so datapins will be written on the lcd
 	inline void pulse_pins()
 	{
-		AVR32_GPIO_LOCAL.port[1].ovrc = (1 << GPIO_NUM2PIN(PIN_WR));
-		AVR32_GPIO_LOCAL.port[1].ovrs = (1 << GPIO_NUM2PIN(PIN_WR));	
+		AVR32_GPIO_LOCAL.port[0].ovrc = (1 << GPIO_NUM2PIN(PIN_WR));
+		AVR32_GPIO_LOCAL.port[0].ovrs = (1 << GPIO_NUM2PIN(PIN_WR));	
 	}
 	//if you call set_pins, call unset_pins after you're done with that color/data
 	//you probably dont really have to :D
 	inline void unset_pins()
 	{
-		AVR32_GPIO_LOCAL.port[1].ovrs = (1 << GPIO_NUM2PIN(PIN_CS));
+		AVR32_GPIO_LOCAL.port[0].ovrs = (1 << GPIO_NUM2PIN(PIN_CS));
 	}
 #endif
 
 #ifdef FORPC
 	#include "simscreen.h"
-	inline void set_pins(uint16_t data)
+	inline void set_pins(){;}
+	
+	inline void set_data(uint16_t data)
 	{
 		current_color = data;
 	}
