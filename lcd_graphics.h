@@ -12,6 +12,11 @@
 #include "lowlvl.h"
 #include "lcd_math.h"
 #include <string.h>
+#include <algorithm>
+
+struct point{
+	int16_t x,y;
+};
 
 //basic triangle polygon
 struct polygon{
@@ -19,6 +24,37 @@ struct polygon{
 	int16_t x1, y1;
 	int16_t x2, y2;
 };
+
+//experimental
+
+class Drawable{
+public:
+	void init_as_rect(int16_t x, int16_t y, int16_t xsize, int16_t ysize, uint16_t color_in);
+	void init_as_poly(point a, point b, point c, uint16_t color_in);
+	void init_as_line(int16_t x0_, int16_t y0_, int16_t x1_, int16_t y1_, uint16_t color_in);
+	
+	void draw(int16_t yline);
+private:
+	
+	int16_t x0,x1,x2,y0,y1,y2;
+	uint16_t color;
+	uint8_t type;
+};
+
+
+void draw_b_rect(int16_t x0, int16_t y0, int16_t xsize, int16_t ysize, uint16_t color);
+void draw_b_poly(polygon p, uint16_t color);
+
+void draw_linebuffer();
+void draw_line_to_buf(int16_t x, int16_t length, uint16_t color);
+
+void flush_to_lcd();
+
+void sort_points_by_y(point &a, point &b, point &c);
+int16_t find_x_along_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t target_x, int16_t target_y);
+//experimental
+
+
 
 //monochromatic noise uses rednoise level as the amount of noise.
 //to use it do something like .setnoise(false,false,true,6,0,0);
