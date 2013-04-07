@@ -23,10 +23,14 @@
 int main()
 {
 	init();
-
-	clear_screen(0x0);
-	uint32_t count;
+	
+	//clear the screen
+	draw_b_rect(0,0,320,240,0x0);
+	flush_to_lcd();
+	
+	uint32_t count = 1;
 	char str[10];
+	char str2[] = "buffered text, buffered text again. text text text";
 
 	int16_t centerx = 320/2;
 	int16_t centery = 240/2;
@@ -34,14 +38,15 @@ int main()
 	
 	polygon p0, p1, p2;
 	
-	
+	#ifdef FORAERY
 	for (;;)
-	{	
+	#endif
+	{
+		count = 0;
+		START_MEASURING_CYCLES();
 		rot++;
 		if (rot >= 360) rot = 0;
-		count  = 0;
-		START_MEASURING_CYCLES();
-		
+
 		p0.x0 = centerx+lcd_cos(rot+120)*50;
 		p0.y0 = centery+lcd_sin(rot+120)*50;
 		
@@ -72,13 +77,15 @@ int main()
 		draw_b_poly(p1, 0xF800);
 		draw_b_poly(p0, 0x7E00);
 		draw_b_poly(p2, 0x001F);
+		draw_b_text(str,0,220,0xF800);
+		draw_b_text(str2,10,10,0xF600, 60);
+		
 		flush_to_lcd();
 		
 		END_MEASURING_CYCLES(count);
 		#ifdef FORAERY
 		itoa(66000000/count,str);
 		#endif
-		draw_text(str,0,220,0xF800);
 	}
 
 	#ifdef FORPC
@@ -106,28 +113,23 @@ int main()
 		}
 		//logic
 		
-				rot++;
+		rot++;
 		if (rot >= 360) rot = 0;
-		count  = 0;
-		START_MEASURING_CYCLES();
 		
-		p.x0 = centerx+lcd_cos(rot+120)*50;
-		p.y0 = centery+lcd_sin(rot+120)*50;
+		p0.x0 = centerx+lcd_cos(rot+120)*50;
+		p0.y0 = centery+lcd_sin(rot+120)*50;
 		
-		p.x1 = centerx+lcd_cos(rot+120*2)*50;
-		p.y1 = centery+lcd_sin(rot+120*2)*50;
+		p0.x1 = centerx+lcd_cos(rot+120*2)*50;
+		p0.y1 = centery+lcd_sin(rot+120*2)*50;
 		
-		p.x2 = centerx+lcd_cos(rot+120*3)*50;
-		p.y2 = centery+lcd_sin(rot+120*3)*50;
+		p0.x2 = centerx+lcd_cos(rot+120*3)*50;
+		p0.y2 = centery+lcd_sin(rot+120*3)*50;
 		
-		draw_b_poly(p, 0xF600);
+		draw_b_poly(p0, 0xF600);
+		draw_b_text(str,0,220,0xF800);
+		draw_b_text(str2,10,10,0xF600, 60);
 		flush_to_lcd();
-		
-		END_MEASURING_CYCLES(count);
-		#ifdef FORAERY
-		itoa(count,str);
-		#endif
-		draw_text(str,0,220,0xF800);
+
 		
 		//render
 		simscreen_render();

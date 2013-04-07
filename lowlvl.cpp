@@ -8,16 +8,6 @@
 //data pins, db00 - db15 are portb 0 - 15 pins
 	
 //controlling pins 
-
-
-/*
-const uint8_t PIN_RS = AVR32_PIN_PB16;
-const uint8_t PIN_WR = AVR32_PIN_PB17;
-const uint8_t PIN_RD = AVR32_PIN_PB18;
-const uint8_t PIN_CS = AVR32_PIN_PB19;
-const uint8_t PIN_RESET = AVR32_PIN_PB20;
-*/
-
 const uint8_t PIN_RS = AVR32_PIN_PA23;
 const uint8_t PIN_WR = AVR32_PIN_PA24;
 const uint8_t PIN_RD = AVR32_PIN_PA25;
@@ -28,13 +18,6 @@ const uint8_t PIN_RESET = AVR32_PIN_PA27;
 // low level
 void lcd_com(uint8_t command)
 {
-	/*
-	lportb->ovrc = (1 << GPIO_NUM2PIN(PIN_CS)) | (1 << GPIO_NUM2PIN(PIN_RS)) | 0xFFFF;
-	lportb->ovrs = command;
-	lportb->ovrc = (1 << GPIO_NUM2PIN(PIN_WR));
-	lportb->ovrs = (1 << GPIO_NUM2PIN(PIN_WR)) | (1 << GPIO_NUM2PIN(PIN_CS)) | (1 << GPIO_NUM2PIN(PIN_RS));
-	*/
-	
 	//set cs, rs, and data pins low, hard-coding a value here does not incr performance.
 	AVR32_GPIO_LOCAL.port[1].ovrc = 0xFFFF;
 	AVR32_GPIO_LOCAL.port[0].ovrc = (1 << GPIO_NUM2PIN(PIN_CS)) | (1 << GPIO_NUM2PIN(PIN_RS));
@@ -46,13 +29,7 @@ void lcd_com(uint8_t command)
 }
 
 void lcd_data(uint16_t data)
-{	
-	/*
-	lportb->ovrc = (1 << GPIO_NUM2PIN(PIN_CS)) | 0xFFFF;
-	lportb->ovrs = data;
-	lportb->ovrc = (1 << GPIO_NUM2PIN(PIN_WR));
-	lportb->ovrs = (1 << GPIO_NUM2PIN(PIN_WR)) | (1 << GPIO_NUM2PIN(PIN_CS));
-	*/
+{
 	AVR32_GPIO_LOCAL.port[1].ovrc = 0xFFFF;
 	AVR32_GPIO_LOCAL.port[0].ovrc = (1 << GPIO_NUM2PIN(PIN_CS));
 	AVR32_GPIO_LOCAL.port[1].ovrs = data;

@@ -5,14 +5,29 @@
 */
 #include "lcd_graphics.h"
 
-//experimental
+void draw_linebuffer();
+void draw_line_to_buf(int16_t x, int16_t length, uint16_t color);
+void draw_pixel_to_buf(int16_t x, uint16_t color);
+void sort_points_by_y(point &a, point &b, point &c);
+int16_t find_x_along_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t target_x, int16_t target_y);
+
+//linebuffer for lcd, color depth is 16-bits so uint16 == 1 pixel
+//this will be drawn for each y-line. and each y-line gets it's own pixels from drawable_buffer primitives
 uint16_t line_buffer[SCREENX] = {};
 
-int32_t buffered_amount = 0;
+
+//drawable primitives buffered here, for each drawn frame
+uint16_t buffered_amount = 0;
 Drawable drawable_buffer[100];
+
+//text buffer pointer points to place where text can be written, on text_buffer
+uint16_t text_buffer_pointer = 0;
+char text_buffer[512];
+
 
 void Drawable::init_as_rect(int16_t x, int16_t y, int16_t xsize, int16_t ysize, uint16_t color_in)
 {
+	buffered_amount++;
 	type = 0;
 	color = color_in;
 	x0 = x;
@@ -22,6 +37,7 @@ void Drawable::init_as_rect(int16_t x, int16_t y, int16_t xsize, int16_t ysize, 
 }
 void Drawable::init_as_poly(point a, point b, point c, uint16_t color_in)
 {
+	buffered_amount++;
 	color = color_in;
 	
 	sort_points_by_y(a,b,c);
@@ -63,20 +79,59 @@ void Drawable::init_as_poly(point a, point b, point c, uint16_t color_in)
 		}
 	}
 	
-	
+
 }
 void Drawable::init_as_line(int16_t x0_, int16_t y0_, int16_t x1_, int16_t y1_, uint16_t color_in)
 {
+	buffered_amount++;
 	type = 3;
 	color = color_in;
 	x0 = x0_; x1 = x1_;
 	y0 = y0_; y1 = y1_;
 	
-	//not done yet
+	//lets calculate y-limits for the line, so we can check against them when drawing
+	
+	//let x2 be our min-y value
+	x2 = (y0 <= y1) ? y0 : y1;
+	//let y2 be our max-y value
+	y2 = (y1 <= y0) ? y0 : y1; 
+}
+
+void Drawable::init_as_text(char *text, int16_t x_in, int16_t y_in, uint16_t color_in, uint16_t max_width)
+{
+	if (text_buffer_pointer+strlen(text) >= 512) return;
+	buffered_amount++;
+	
+	//x2 is where the actual text starts in text_buffer
+	x2 = text_buffer_pointer;
+	
+	//y2 is the length of the text
+	y2 = strlen(text);
+	
+	type = 4;
+	x0 = x_in;
+	y0 = y_in;
+	color = color_in;
+	
+	//x1 is the max width of the text, if the text is longer than this, it will be split into n lines
+	if (max_width < 6) max_width = 6;
+	x1 = max_width;
+	
+	//init y1 as max y val for easy checking on draw
+	//lets count how many lines we need for the text
+	int16_t lines = y2*6 / max_width;
+	//we need atleast 1 line, and text is always, and will be 7 pixels high + 1 pixel between lines
+	y1 = y0 + (1+lines)*8;
+	
+	strcpy(text_buffer+text_buffer_pointer,text);
+	
+	//text_buffer_pointer += text length
+	text_buffer_pointer += y2;
 }
 
 void Drawable::draw(int16_t yline)
 {
+	//draw rectangle 
 	if (type == 0)
 	{
 		if (yline < y0) return;
@@ -85,7 +140,7 @@ void Drawable::draw(int16_t yline)
 		draw_line_to_buf(x0, x1, color);
 	} else
 	
-	//pyramid triangle
+	//draw pyramid triangle
 	if (type == 1)
 	{
 		if (yline < y0) return;
@@ -111,13 +166,11 @@ void Drawable::draw(int16_t yline)
 		draw_line_to_buf(start_x, stop_x-start_x, color);
 	} else
 	
-	//ice cream cone triangle
+	//draw ice cream cone triangle
 	if (type == 2)
 	{
 		if (yline < y0) return;
 		if (yline > y2) return;
-		//int16_t start_x = find_x_along_line(x0, y0, x2, y2, x2, yline);
-		//int16_t stop_x = find_x_along_line(x1, y1, x2, y2, x2, yline);
 		
 		int16_t start_x, stop_x;
 		
@@ -136,14 +189,81 @@ void Drawable::draw(int16_t yline)
 		}
 		
 		draw_line_to_buf(start_x, stop_x-start_x, color);
+	} else
+	
+	//draw line
+	if (type == 3)
+	{
+		//for line, x2 is min-y value so we check against it
+		//y2 is our max-y value and check against it tooo
+		if (yline < x2) return;
+		if (yline > y2) return;
+		
+		int16_t start_x;
+		if (x0 == x1)
+		{
+			start_x = x0;
+		} else {
+			start_x = x0 + (x1 - x0) * (yline - y0) / (y1 - y0);
+		}
+		
+		draw_line_to_buf(start_x, 1, color);
+	} else
+	
+	//draw text
+	if (type == 4)
+	{
+		if (yline < y0) return;
+		if (yline > y1) return;
+
+		/*
+		1. get the line on which we're working on
+		2. get the y-line we're working on, on that line of text
+		
+		3. loop thru characters in that line, or to the end
+		*/
+		int16_t current_line = (yline - y0) / 8;
+		int16_t text_y_line = yline - y0 - current_line*8;
+		int16_t text_per_line = x1 / 6;
+		
+		for (int32_t i = 0; (i < text_per_line) && (i < (y2 - current_line*text_per_line)); i++)
+		{
+			//current character we're working with, on text_buffer
+			int16_t cur_char = current_line*text_per_line + i + x2;
+			if ((text_buffer[cur_char] > 39) && (text_buffer[cur_char] < 123))
+			{
+				//characters are 5 pixels in width.
+				if (charLUT[5*(text_buffer[cur_char]-40)+0] & (1 << text_y_line)) draw_pixel_to_buf(x0+i*6+0, color);
+				if (charLUT[5*(text_buffer[cur_char]-40)+1] & (1 << text_y_line)) draw_pixel_to_buf(x0+i*6+1, color);
+				if (charLUT[5*(text_buffer[cur_char]-40)+2] & (1 << text_y_line)) draw_pixel_to_buf(x0+i*6+2, color);
+				if (charLUT[5*(text_buffer[cur_char]-40)+3] & (1 << text_y_line)) draw_pixel_to_buf(x0+i*6+3, color);
+				if (charLUT[5*(text_buffer[cur_char]-40)+4] & (1 << text_y_line)) draw_pixel_to_buf(x0+i*6+4, color);
+			}
+		}
+
 	}
+}
+
+void draw_b_pixel(int16_t x0, int16_t y0, uint16_t color)
+{
+	//pixel is 1x1 so we use 2 times x0, y0
+	drawable_buffer[buffered_amount].init_as_line(x0, y0, x0, y0, color);
+}
+
+void draw_b_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color)
+{
+	drawable_buffer[buffered_amount].init_as_line(x0, y0, x1, y1, color);
 }
 
 void draw_b_rect(int16_t x0, int16_t y0, int16_t xsize, int16_t ysize, uint16_t color)
 {
 	//draw bufferect rectangle
 	drawable_buffer[buffered_amount].init_as_rect(x0, y0, xsize, ysize, color);
-	buffered_amount++;
+}
+
+void draw_b_text(char *text, int16_t x, int16_t y, uint16_t color, uint16_t max_width)
+{
+	drawable_buffer[buffered_amount].init_as_text(text, x, y, color, max_width);
 }
 
 void draw_b_poly(polygon p, uint16_t color)
@@ -168,16 +288,13 @@ void draw_b_poly(polygon p, uint16_t color)
 		split.x = find_x_along_line(min_y.x, min_y.y, max_y.x, max_y.y, med_y.x, med_y.y);
 		
 		drawable_buffer[buffered_amount].init_as_poly(min_y, med_y, split, color);
-		buffered_amount++;
 		drawable_buffer[buffered_amount].init_as_poly(max_y, med_y, split, color);
-		buffered_amount++;
-		
 	} else {
 		drawable_buffer[buffered_amount].init_as_poly(min_y, med_y, max_y, color);
-		buffered_amount++;
 	}
 }
 
+//draws a line of pixels to the linebuffer. should not be called.
 void draw_line_to_buf(int16_t x, int16_t length, uint16_t color)
 {
 	if (x >= SCREENX) return;
@@ -196,6 +313,16 @@ void draw_line_to_buf(int16_t x, int16_t length, uint16_t color)
 		line_buffer[i] = color;
 	}
 }
+
+//draws a single pixel to the linebuffer
+void draw_pixel_to_buf(int16_t x, uint16_t color)
+{
+	if (x >= SCREENX) return;
+	if (x < 0) return;
+	line_buffer[x] = color;
+}
+
+//draws the linebuffer to the lcd
 void draw_linebuffer()
 {
 	set_pins();
@@ -225,6 +352,9 @@ void draw_linebuffer()
 	unset_pins();
 }
 
+
+//flushes the buffers to the lcd and resets everything
+//so call this only once per loop, since this draws the frame
 void flush_to_lcd()
 {
 	command_lcd(0x4e, 0);
@@ -249,9 +379,10 @@ void flush_to_lcd()
 
 	//reset drawable objects
 	buffered_amount = 0;
+	text_buffer_pointer = 0;
 }
 
-//sort points by y, can be given in any order (duh), returns them ordered
+//sort points by y, returns them ordered, lowest y 1st
 void sort_points_by_y(point &min, point &med, point &max)
 {
 	point temp;
@@ -279,6 +410,8 @@ void sort_points_by_y(point &min, point &med, point &max)
 	}
 }
 
+
+//finds intersection point of 2 lines, x0,y0 -> x1,y1 and horizontal line at target_y, target_x is to get min/max pixel of the intersection point
 int16_t find_x_along_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t target_x, int16_t target_y)
 {
 	int16_t found_min_x = 16000;
@@ -333,454 +466,3 @@ int16_t find_x_along_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_
 		return found_max_x;
 	}
 }
-
-//experimental ends
-
-//clears the whole screen with given color
-void clear_screen(uint16_t color)
-{
-	command_lcd(0x4e, 0);
-	command_lcd(0x4f, 0);
-	lcd_com(0x22);
-	set_pins();
-	set_data(color);
-	for (uint32_t i = 0; i < SCREENX*SCREENY; i++)
-	{
-		pulse_pins();
-	}
-	unset_pins();
-}
-
-
-void draw_pixel(int16_t x, int16_t y, uint16_t color)
-{
-	//clamp x and y to proper values
-	if (y >= SCREENY) return;
-	if (x >= SCREENX) return;
-	if (x < 0) return;
-	if (y < 0) return;
-	
-	//set cursor to correct position in graphical ram
-	command_lcd(0x4e,y);
-    command_lcd(0x4f,x);
-    //0x22 is needed so the screen will accept color data
-    lcd_com(0x22);
-    lcd_data(color);
-}
-/*
-//whole function is from wikipedia, contains lots of unexplained magic
-void draw_line(int16_t x0, int16_t x1, int16_t y0, int16_t y1, uint16_t color)
-{
-	int16_t sx, sy, err, e2;
-	int16_t dx = lcd_abs(x1-x0);
-	int16_t dy = lcd_abs(y1-y0);
-	
-	(x0 < x1) ? sx = 1 : sx = -1;
-	(y0 < y1) ? sy = 1 : sy = -1;
-	err = dx-dy;
-
-	for(;;)
-	{
-		//since we're only using draw_pixel, we do not have to check for limits
-		//as draw_pixel does it by itself
-		draw_pixel(x0,y0,color);
-		if ((x0 == x1) && (y0 == y1))
-		{
-			break;
-		}
-		e2 = err*2;
-		if (e2 > -dy) {
-			err -= dy;
-			x0 += sx;
-		}
-		if (e2 < dx)
-		{
-			err += dx;
-			y0 += sy;
-		}
-	}
-}
-*/
-
-/*	fast horizontal line draw function, uses the fact that graphical ram position
-	moves +1 to the right after inserting color value
-	
-	notice that 2nd argument is length, not end point on x-axis
-*/
-/*
-void draw_line_hor(int16_t x0, int16_t length, int16_t y0, uint16_t color)
-{
-	//clamp x,y vals between correct values
-	if (y0 < 0) return;
-	if (x0 >= SCREENX) return;
-	if (y0 >= SCREENY) return;
-	
-	//if x<0, lets cut negative part out of length, and set x=0
-	//so we still render some line, even if we "start" from neg x coordinate
-	if (x0 < 0)
-	{
-		length += x0;
-		x0 = 0;
-	}
-	//lets not get over the screen, to avoid wrapping to next y-line, as per screen spec
-	if (length+x0 >= SCREENX)
-	{
-		length = SCREENX-x0;
-	}
-	
-	//set cursor to correct position in graphical ram
-	command_lcd(0x4e,y0);
-    command_lcd(0x4f,x0);
-    //0x22 is needed so the screen will accept color data
-    lcd_com(0x22);
-    set_pins();
-    set_data(color);
-	for (int32_t i = 0; i < length; i++)
-	{
-		pulse_pins();
-	}
-	unset_pins();
-}
-*/
-
-/*
-//draws rectangle of solid color
-void draw_rect(int16_t x0, int16_t xsize, int16_t y0, int16_t ysize, uint16_t color)
-{
-	//clamp stuff
-	if ( x0 < 0 )
-	{
-		xsize += x0;
-		x0 = 0;
-	}
-	if ( y0 < 0 )
-	{
-		ysize += y0;
-		y0 = 0;
-	}
-	if (xsize+x0 >= SCREENX)
-	{
-		xsize = SCREENX-x0;
-	}
-	if (ysize+y0 >= SCREENY)
-	{
-		ysize = SCREENY-y0;
-	}
-
-	//draw rect
-    for (int32_t i = 0; i < ysize; i++)
-    {
-    	command_lcd(0x4e,y0+(uint16_t)i);
-   		command_lcd(0x4f,x0);
-   		lcd_com(0x22);
-   		set_pins(); //exp
-   		set_data(color);
-   		for (int32_t j = 0; j < xsize; j++)
-   		{
-   			pulse_pins();
-   		}
-   		unset_pins();	//exp
-    }
-}
-*/
-//draws text to given position, starting at upper left corner, with given color
-void draw_text(char *array, int16_t x, int16_t y, uint16_t color)
-{
-	//probably should replace strlen to something else to save bin space?
-	int32_t len = strlen(array);
-	//pointer to x position, where we're going
-	int32_t pointer = 0;
-	int32_t i, j, k;
-	
-	for (i = 0; i < len; i++)
-	{
-		//ascii chars from 40 to 122 only
-		if ((array[i] > 39) && (array[i] < 123))
-		{
-			//char width
-			for (j = 0; j < 5; j++)
-			{
-				//char height
-				for (k = 0; k < 8; k++)
-				{
-					//get bit from character look-up table
-					if (charLUT[j+5*(array[i]-40)] & (0x01 << k))
-					{
-						//since we're using draw_pixel only, we do not have to check for
-						//screen limits. draw_pixel does that for us
-						draw_pixel(pointer+x+j, y+k, color);
-					}
-				}
-			}
-		}	
-		//char width 5, so we advance 6 pixels to the right
-		pointer += 6;
-	}
-}
-/*
-//gets x min limits for polygon on every y-line, and x lengths on said lines
-void get_polygon_limits(int16_t x0, int16_t x1, int16_t y0, int16_t y1, int16_t *xvals, int16_t *xlens, uint16_t size, int16_t minY)
-{
-	//this is default line-drawing method, without actually drawing anything. look up draw_line()	
-	int16_t sx, sy, err;
-	int16_t dx = lcd_abs(x1-x0);
-	int16_t dy = lcd_abs(y1-y0);
-	
-	(x0 < x1) ? sx = 1 : sx = -1;
-	(y0 < y1) ? sy = 1 : sy = -1;
-	err = dx-dy;
-	
-	for(;;)
-	{
-		//set xvals[y] as min x encountered so far
-		int16_t xval = *(xvals+(y0-minY));
-		int16_t xlen = *(xlens+(y0-minY));
-		
-		if (x0 < xval) 
-		{
-			xvals[y0-minY] = x0;
-		}
-		
-		if (x0 > xlen)
-		{
-			xlens[y0-minY] = x0;
-		}
-		
-		if ((x0 == x1) && (y0 == y1))
-		{
-			break;
-		}
-		int16_t e2 = err*2;
-		if (e2 > -dy) {
-			err -= dy;
-			x0 += sx;
-		}
-		if (e2 < dx)
-		{
-			err += dx;
-			y0 += sy;
-		}
-	}
-}
-
-
-void draw_polygon(polygon p, uint16_t color)
-{
-	//check the y-height of the polygon
-	int16_t minY = find_min(p.y0, p.y1, p.y2);
-	int16_t maxY = find_max(p.y0, p.y1, p.y2);
-	int16_t height = maxY - minY + 1;
-	
-	//	init 2 arrays holding x-values at y-line
-	//	xvals holds min values of x of polygon p, at line y
-	//	xlens holds max values of x of polygon p, at line y
-	
-	int16_t xvals[height];
-	int16_t xlens[height];
-	
-	//init min x values as max screen width, so we can start lowering them
-	//init max x values as 0 so we can start incresing them
-	for (int32_t i = 0; i < height; i++)
-	{
-		xvals[i] = SCREENX-1;
-		xlens[i] = 0;
-	}
-	
-	//pointers to arrays to pass around
-	int16_t *p_xvals;
-	int16_t *p_xlens;
-	p_xvals = xvals;
-	p_xlens = xlens;
-	
-	//fill xvals,xlens arrays with values, defining polygon edges on left and right side
-	get_polygon_limits( p.x0, p.x1, p.y0, p.y1, p_xvals, p_xlens, height, minY);
-	get_polygon_limits( p.x1, p.x2, p.y1, p.y2, p_xvals, p_xlens, height, minY);
-	get_polygon_limits( p.x2, p.x0, p.y2, p.y0, p_xvals, p_xlens, height, minY);
-	
-	//draw "height" amount of lines, to position defined by xvals, and lenght of xlen  
-	for (int32_t i = 0; i < height; i++)
-	{
-		draw_line_hor(xvals[i], xlens[i]-xvals[i], i+minY, color);
-	}
-}
-
-
-uint16_t mix_colors(uint16_t base_color, uint16_t overlay_color, uint8_t alpha)
-{
-
-	uint16_t basered, basegreen, baseblue;
-	uint16_t overred, overgreen, overblue;
-	basered =   (base_color >> 11) & 0x1f;
-	basegreen = (base_color >> 5) & 0x3f;
-	baseblue =   base_color & 0x1f;
-	overred =   (overlay_color >> 11) & 0x1f;
-	overgreen = (overlay_color >> 5) & 0x3f;
-	overblue =   overlay_color & 0x1f;
-	return	((basered   * alpha + overred   * (255-alpha))/255 << 11) |
-			((basegreen * alpha + overgreen * (255-alpha))/255 << 5)|
-			((baseblue  * alpha + overblue  * (255-alpha))/255);
-	
-	//uint16_t bred = ((base_color >> 11) & alpha & 0x1f) + ((overlay_color >> 11) & ~alpha & 0x1f) >> 1;
-	//uint16_t bgreen = ((base_color >> 5) & alpha & 0x3f) + ((overlay_color >> 5) & ~alpha & 0x3f) >> 1;
-	//uint16_t bblue = (base_color & alpha & 0x1f) + (overlay_color & ~alpha & 0x1f) >> 1;
-	//return  bred << 11 | bgreen << 5 | bblue;
-	
-	//return ((base_color * alpha) + overlay_color * (255 - alpha)) / 255;
-}
-
-uint16_t mix_colors(uint8_t a_red, uint8_t a_green, uint8_t a_blue, uint8_t b_red, uint8_t b_green, uint8_t b_blue, uint8_t alpha)
-{
-	return	((a_red		* (255 - alpha) + b_red		* alpha) / 255 << 11) |
-			((a_green	* (255 - alpha) + b_green	* alpha) / 255 << 5) |
-			((a_blue	* (255 - alpha) + b_blue	* alpha) / 255);
-}
-
-
-//	rgb components gets added to base color, msb=1 signifies addition, msb=0 is reduction of said color
-//	ie. basecolor += component*(-1+msb*2)
-
-uint16_t mix_a_color(uint16_t base_color, uint8_t red, uint8_t green, uint8_t blue)
-{
-	int16_t basered, basegreen, baseblue;
-	//separate components from base color
-	basered =   (base_color >> 11) & 0x1f;
-	basegreen = (base_color >> 5) & 0x3f;
-	baseblue =   base_color & 0x1f;
-	
-	
-		
-	basered += (red & 0x7F)    * (-1+(red&0x80>>6));
-	basegreen += (green & 0x7F)* (-1+(green&0x80>>6));
-	baseblue += (blue & 0x7F)  * (-1+(blue&0x80>>6));
-		
-	if (basered < 0) basered = 0;
-	if (basegreen < 0) basegreen = 0;
-	if (baseblue < 0) baseblue = 0;
-	
-	if (basered > 0x1f) basered = 0x1f;
-	if (basegreen > 0x3f) basegreen = 0x3f;
-	if (baseblue > 0x1f) baseblue = 0x1f;
-	
-	return (basered&0x1F) << 11 | (basegreen&0x3F) << 5 | (baseblue&0x1F);
-}
-
-//experimental
-void draw_rect(int16_t x0, uint16_t xsize, int16_t y0, uint16_t ysize, uint16_t color, texture tex)
-{
-	if ( x0 < 0 )
-	{
-		xsize += x0;
-		x0 = 0;
-	}
-	if ( y0 < 0 )
-	{
-		ysize += y0;
-		y0 = 0;
-	}
-	if (y0+ysize >= SCREENY)
-	{
-		ysize = SCREENY - y0;
-	}
-	if (x0+xsize >= SCREENX)
-	{
-		xsize = SCREENX - x0;
-	}
-	
-	//uint16_t colorbuffer[2];
-   	//colorbuffer[0] = color;
-   	//colorbuffer[1] = mix_colors(color, tex.color, tex.alpha);
-	//uint16_t linebuffer[xsize];
-	//uint32_t randbuffer = prng();
-	
-	uint8_t red = color >> 11 & 0x1F;
-	uint8_t green = color >> 5 & 0x3F;
-	uint8_t blue = color & 0x1F;
-	
-	uint32_t randbuffer;
-	uint16_t colorbuffer[16];
-	
-	//initialize iterators, and use ifs to check which mode we're going to use later
-	//we do this to avoid if's inside for-loops
-	//texnoise iterator, chromatic / monochromatic noise iterator, normal iterator
-	
-	uint16_t tn_it = ysize, cn_it = ysize, n_it = ysize;
-	
-	//texture noise
-	if (tex.gettexnoise())
-	{
-		tn_it = 0;
-		colorbuffer[0] = color;
-		colorbuffer[1] = mix_colors(color,tex.color, tex.alpha);
-	}
-	
-	//chromatic noise, color noise
-	if (tex.getcolornoise())
-	{
-		cn_it = 0;
-		for (uint16_t i = 0; i < 8; i++)
-		{		
-			randbuffer = prng();
-			colorbuffer[i] = mix_a_color(color, (randbuffer >> 16) % (1 << tex.getnoisered()), (randbuffer >> 8) % (1 <<tex.getnoisegreen()), (randbuffer % (1 <<tex.getnoiseblue())));
-			colorbuffer[i+8] = mix_a_color(color, (randbuffer >> 16) % (1 << tex.getnoisered()), (randbuffer >> 8) % (1 <<tex.getnoisegreen()), (randbuffer % (1 <<tex.getnoiseblue())));
-		}
-	}
-	
-	//monochromatic noise
-	if (tex.getmononoise())
-	{
-		cn_it = 0;
-		for (uint16_t i = 0; i < 8; i++)
-		{
-			colorbuffer[i] = mix_colors(red,green,blue,0x0, 0x0, 0x0, i*(tex.getnoisered()*5+1));
-			colorbuffer[i+8] = mix_colors(red,green,blue,0x1F, 0x3F, 0x1F,i*(tex.getnoisered()*5+1));
-		}	
-	}
-	
-	//normal texture operation
-	//if sum of previous iterators is ysize*3, then we havent used them, so we do normal texture stuff here
-	if (tn_it+cn_it == ysize*2)
-	{
-		n_it = 0;
-		colorbuffer[0] = color;
-		colorbuffer[1] = mix_colors(color,tex.color, tex.alpha);
-	}
-
-
-	//forloop for texture noise
-	for (; tn_it < ysize; tn_it++)
-	{
-		command_lcd(0x4e,y0+tn_it);
-   		command_lcd(0x4f,x0);
-   		lcd_com(0x22);
-   		for (uint16_t i = 0; i < xsize; i++)
-		{
-			lcd_data(colorbuffer[prng()%2]);
-		}
-	}
-	
-	//forloop for chromatic/monochromatic noise
-	for (; cn_it < ysize; cn_it++)
-	{
-		command_lcd(0x4e,y0+cn_it);
-   		command_lcd(0x4f,x0);
-   		lcd_com(0x22);
-		for (uint16_t i = 0; i < xsize; i++)
-		{
-			lcd_data(colorbuffer[(prng())%16]);
-		}
-	}
-	
-	//normal texture operation
-	for (; n_it < ysize; n_it++)
-	{
-		command_lcd(0x4e,y0+n_it);
-   		command_lcd(0x4f,x0);
-   		lcd_com(0x22);
-   		for (uint16_t i = 0; i < xsize; i++)
-		{
-			lcd_data(colorbuffer[def_textures[tex.texture_num][i%16] >> (n_it%16) & 0x1]);
-		}
-	}
-}
-
-*/
