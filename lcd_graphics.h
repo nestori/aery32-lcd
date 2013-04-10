@@ -31,6 +31,8 @@ public:
 	void init_as_line(int16_t x0_, int16_t y0_, int16_t x1_, int16_t y1_, uint16_t color_in);
 	void init_as_text(char *text, int16_t x, int16_t y, uint16_t color, uint16_t max_width = SCREENX);
 	void draw(int16_t yline);
+	int16_t get_start() { return y0; }
+	int16_t get_end() { return y2; }
 private:
 	int16_t x0,x1,x2,y0,y1,y2;
 	uint16_t color;

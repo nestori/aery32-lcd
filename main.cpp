@@ -23,20 +23,24 @@
 int main()
 {
 	init();
-	
 	//clear the screen
 	draw_b_rect(0,0,320,240,0x0);
 	flush_to_lcd();
 	
 	uint32_t count = 1;
 	char str[10];
-	char str2[] = "buffered text, buffered text again. text text text";
+	//char str2[] = "buffered text, buffered text again. text text text";
+	
+	uint16_t colors[] = {0xF800, 0xF600, 0x7E0, 0x1F, 0xFFFF,0xF800, 0xF600, 0x7E0, 0x1F, 0xFFFF,0xF800, 0xF600, 0x7E0, 0x1F, 0xFFFF};
 
 	int16_t centerx = 320/2;
 	int16_t centery = 240/2;
+	
+	int16_t polysize = 30;
+	
 	int16_t rot = 0;
 	
-	polygon p0, p1, p2;
+	polygon poly;
 	
 	#ifdef FORAERY
 	for (;;)
@@ -46,39 +50,32 @@ int main()
 		START_MEASURING_CYCLES();
 		rot++;
 		if (rot >= 360) rot = 0;
+		
 
-		p0.x0 = centerx+lcd_cos(rot+120)*50;
-		p0.y0 = centery+lcd_sin(rot+120)*50;
-		
-		p0.x1 = centerx+lcd_cos(rot+120*2)*50;
-		p0.y1 = centery+lcd_sin(rot+120*2)*50;
-		
-		p0.x2 = centerx+lcd_cos(rot+120*3)*50;
-		p0.y2 = centery+lcd_sin(rot+120*3)*50;
-		
-		p1.x0 = centerx+lcd_cos(rot+120)*50-30;
-		p1.y0 = centery+lcd_sin(rot+120)*50;
-		
-		p1.x1 = centerx+lcd_cos(rot+120*2)*50-30;
-		p1.y1 = centery+lcd_sin(rot+120*2)*50;
-		
-		p1.x2 = centerx+lcd_cos(rot+120*3)*50-30;
-		p1.y2 = centery+lcd_sin(rot+120*3)*50;
-		
-		p2.x0 = centerx+lcd_cos(rot+120)*50+30;
-		p2.y0 = centery+lcd_sin(rot+120)*50;
-		
-		p2.x1 = centerx+lcd_cos(rot+120*2)*50+30;
-		p2.y1 = centery+lcd_sin(rot+120*2)*50;
-		
-		p2.x2 = centerx+lcd_cos(rot+120*3)*50+30;
-		p2.y2 = centery+lcd_sin(rot+120*3)*50;
-		
-		draw_b_poly(p1, 0xF800);
-		draw_b_poly(p0, 0x7E00);
-		draw_b_poly(p2, 0x001F);
+		for (int i = 0; i < 15; i++)
+		{
+			poly.x0 = (i-7)*20+centerx+lcd_cos(rot+120)*polysize;
+			poly.y0 = centery+lcd_sin(rot+120)*polysize;
+			poly.x1 = (i-7)*20+centerx+lcd_cos(rot+120*2)*polysize;
+			poly.y1 = centery+lcd_sin(rot+120*2)*polysize;
+			poly.x2 = (i-7)*20+centerx+lcd_cos(rot+120*3)*polysize;
+			poly.y2 = centery+lcd_sin(rot+120*3)*polysize;
+			draw_b_poly(poly, colors[i]);
+		}
+		for (int i = 0; i < 15; i++)
+		{
+			poly.x0 = (i-7)*20+centerx+lcd_cos(rot+120)*polysize;
+			poly.y0 = 20+centery+lcd_sin(rot+120)*polysize;
+			poly.x1 = (i-7)*20+centerx+lcd_cos(rot+120*2)*polysize;
+			poly.y1 = 20+centery+lcd_sin(rot+120*2)*polysize;
+			poly.x2 = (i-7)*20+centerx+lcd_cos(rot+120*3)*polysize;
+			poly.y2 = 20+centery+lcd_sin(rot+120*3)*polysize;
+			draw_b_poly(poly, colors[i]);
+		}
+
+ 
 		draw_b_text(str,0,220,0xF800);
-		draw_b_text(str2,10,10,0xF600, 60);
+		//draw_b_text(str2,10,10,0xF600, 60);
 		
 		flush_to_lcd();
 		
@@ -116,18 +113,18 @@ int main()
 		rot++;
 		if (rot >= 360) rot = 0;
 		
-		p0.x0 = centerx+lcd_cos(rot+120)*50;
-		p0.y0 = centery+lcd_sin(rot+120)*50;
+		for (int i = 0; i < 15; i++)
+		{
+			poly.x0 = (i-7)*20+centerx+lcd_cos(rot+120)*polysize;
+			poly.y0 = centery+lcd_sin(rot+120)*polysize;
+			poly.x1 = (i-7)*20+centerx+lcd_cos(rot+120*2)*polysize;
+			poly.y1 = centery+lcd_sin(rot+120*2)*polysize;
+			poly.x2 = (i-7)*20+centerx+lcd_cos(rot+120*3)*polysize;
+			poly.y2 = centery+lcd_sin(rot+120*3)*polysize;
+			draw_b_poly(poly, colors[i]);
+		}
 		
-		p0.x1 = centerx+lcd_cos(rot+120*2)*50;
-		p0.y1 = centery+lcd_sin(rot+120*2)*50;
-		
-		p0.x2 = centerx+lcd_cos(rot+120*3)*50;
-		p0.y2 = centery+lcd_sin(rot+120*3)*50;
-		
-		draw_b_poly(p0, 0xF600);
 		draw_b_text(str,0,220,0xF800);
-		draw_b_text(str2,10,10,0xF600, 60);
 		flush_to_lcd();
 
 		

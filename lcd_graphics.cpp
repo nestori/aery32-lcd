@@ -9,7 +9,6 @@ void draw_linebuffer();
 void draw_line_to_buf(int16_t x, int16_t length, uint16_t color);
 void draw_pixel_to_buf(int16_t x, uint16_t color);
 void sort_points_by_y(point &a, point &b, point &c);
-int16_t find_x_along_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t target_x, int16_t target_y);
 
 //linebuffer for lcd, color depth is 16-bits so uint16 == 1 pixel
 //this will be drawn for each y-line. and each y-line gets it's own pixels from drawable_buffer primitives
@@ -18,7 +17,10 @@ uint16_t line_buffer[SCREENX] = {};
 
 //drawable primitives buffered here, for each drawn frame
 uint16_t buffered_amount = 0;
-Drawable drawable_buffer[100];
+Drawable drawable_buffer[150];
+
+uint16_t start_drawing[150];
+uint16_t end_drawing[150];
 
 //text buffer pointer points to place where text can be written, on text_buffer
 uint16_t text_buffer_pointer = 0;
@@ -34,7 +36,11 @@ void Drawable::init_as_rect(int16_t x, int16_t y, int16_t xsize, int16_t ysize, 
 	y0 = y;
 	x1 = xsize;
 	y1 = ysize;
+	
+	//y2 = max y val
+	y2 = y0+y1;
 }
+
 void Drawable::init_as_poly(point a, point b, point c, uint16_t color_in)
 {
 	buffered_amount++;
@@ -68,6 +74,8 @@ void Drawable::init_as_poly(point a, point b, point c, uint16_t color_in)
 			x1 = c.x; y1 = c.y;
 			x2 = b.x; y2 = b.y;
 		}
+		
+	// if 2 first values share y-val, then we have top-down triangle
 	} else {
 		type = 2;
 		
@@ -91,10 +99,17 @@ void Drawable::init_as_line(int16_t x0_, int16_t y0_, int16_t x1_, int16_t y1_, 
 	
 	//lets calculate y-limits for the line, so we can check against them when drawing
 	
-	//let x2 be our min-y value
-	x2 = (y0 <= y1) ? y0 : y1;
+	//if y1 is smaller than y0, we switch em around, y0 needs to be smaller
+	if (y1 < y0)
+	{
+		y0 = y1_;
+		y1 = y0_;
+		x0 = x1_;
+		x1 = x0_;
+	}
+
 	//let y2 be our max-y value
-	y2 = (y1 <= y0) ? y0 : y1; 
+	y2 = y1;
 }
 
 void Drawable::init_as_text(char *text, int16_t x_in, int16_t y_in, uint16_t color_in, uint16_t max_width)
@@ -105,8 +120,8 @@ void Drawable::init_as_text(char *text, int16_t x_in, int16_t y_in, uint16_t col
 	//x2 is where the actual text starts in text_buffer
 	x2 = text_buffer_pointer;
 	
-	//y2 is the length of the text
-	y2 = strlen(text);
+	//y1 is the length of the text
+	y1 = strlen(text);
 	
 	type = 4;
 	x0 = x_in;
@@ -121,85 +136,48 @@ void Drawable::init_as_text(char *text, int16_t x_in, int16_t y_in, uint16_t col
 	//lets count how many lines we need for the text
 	int16_t lines = y2*6 / max_width;
 	//we need atleast 1 line, and text is always, and will be 7 pixels high + 1 pixel between lines
-	y1 = y0 + (1+lines)*8;
+	y2 = y0 + (1+lines)*8;
 	
 	strcpy(text_buffer+text_buffer_pointer,text);
 	
 	//text_buffer_pointer += text length
-	text_buffer_pointer += y2;
+	text_buffer_pointer += y1;
 }
 
 void Drawable::draw(int16_t yline)
 {
-	//draw rectangle 
-	if (type == 0)
-	{
-		if (yline < y0) return;
-		if (yline >= (y0+y1)) return;
+	//y0 is always min y, y2 is always max y
+	//if (yline < y0) return;
+	//if (yline > y2) return;
+	//helper ints for scanline start/stop points on x-axis
+	int16_t start_x, stop_x;
 
+	switch (type)
+	{
+	//draw rect
+	case 0:
 		draw_line_to_buf(x0, x1, color);
-	} else
+	break;
 	
 	//draw pyramid triangle
-	if (type == 1)
-	{
-		if (yline < y0) return;
-		if (yline > y2) return;		
-		//int16_t start_x = find_x_along_line(x0, y0, x1, y1, x0, yline);
-		//int16_t stop_x = find_x_along_line(x0, y0, x2, y2, x0, yline);
-		int16_t start_x, stop_x;
-		if (x0 == x1)
-		{
-			start_x = x0;
-		} else {
-			start_x = x0 + (x1 - x0) * (yline - y0) / (y1 - y0);
-		}
-		
-		if (x0 == x2)
-		{
-			stop_x = x0;
-		} else {
-			stop_x = x0 + (x2 - x0) * (yline - y0) / (y2 - y0);
-		}
-		
+	case 1:
+		start_x = x0 + (x1 - x0) * (yline - y0) / (y1 - y0);
+		stop_x = x0 + (x2 - x0) * (yline - y0) / (y2 - y0);
 		
 		draw_line_to_buf(start_x, stop_x-start_x, color);
-	} else
+	break;
 	
 	//draw ice cream cone triangle
-	if (type == 2)
-	{
-		if (yline < y0) return;
-		if (yline > y2) return;
-		
-		int16_t start_x, stop_x;
-		
-		if (x2 == x0)
-		{
-			start_x = x2;
-		} else {
-			start_x =  x2 + (x0 - x2) * (y2 - yline) / (y2 - y0);
-		}
-		
-		if (x2 == x1)
-		{
-			stop_x = x2;
-		} else {
-			stop_x = x2 + (x1 - x2) * (y2 - yline) / (y2 - y1);
-		}
+	case 2:
+		start_x = x2 + (x0 - x2) * (y2 - yline) / (y2 - y0);
+		stop_x = x2 + (x1 - x2) * (y2 - yline) / (y2 - y1);
 		
 		draw_line_to_buf(start_x, stop_x-start_x, color);
-	} else
+	break;
 	
 	//draw line
-	if (type == 3)
-	{
-		//for line, x2 is min-y value so we check against it
-		//y2 is our max-y value and check against it tooo
-		if (yline < x2) return;
-		if (yline > y2) return;
-		
-		int16_t start_x;
+	case 3:
+
 		if (x0 == x1)
 		{
 			start_x = x0;
@@ -208,14 +186,10 @@ void Drawable::draw(int16_t yline)
 		}
 		
 		draw_line_to_buf(start_x, 1, color);
-	} else
+	break;
 	
 	//draw text
-	if (type == 4)
-	{
-		if (yline < y0) return;
-		if (yline > y1) return;
-
+	case 4:
 		/*
 		1. get the line on which we're working on
 		2. get the y-line we're working on, on that line of text
@@ -226,7 +200,7 @@ void Drawable::draw(int16_t yline)
 		int16_t text_y_line = yline - y0 - current_line*8;
 		int16_t text_per_line = x1 / 6;
 		
-		for (int32_t i = 0; (i < text_per_line) && (i < (y2 - current_line*text_per_line)); i++)
+		for (int32_t i = 0; (i < text_per_line) && (i < (y1 - current_line*text_per_line)); i++)
 		{
 			//current character we're working with, on text_buffer
 			int16_t cur_char = current_line*text_per_line + i + x2;
@@ -240,7 +214,7 @@ void Drawable::draw(int16_t yline)
 				if (charLUT[5*(text_buffer[cur_char]-40)+4] & (1 << text_y_line)) draw_pixel_to_buf(x0+i*6+4, color);
 			}
 		}
-
+	break;
 	}
 }
 
@@ -285,7 +259,8 @@ void draw_b_poly(polygon p, uint16_t color)
 	{
 		//we want to split the triangle along the med point, so new point has same y as med point
 		split.y = med_y.y;
-		split.x = find_x_along_line(min_y.x, min_y.y, max_y.x, max_y.y, med_y.x, med_y.y);
+		//split.x = find_x_along_line(min_y.x, min_y.y, max_y.x, max_y.y, med_y.x, med_y.y);
+		split.x = min_y.x + (max_y.x - min_y.x) * (med_y.y - min_y.y) / (max_y.y - min_y.y);
 		
 		drawable_buffer[buffered_amount].init_as_poly(min_y, med_y, split, color);
 		drawable_buffer[buffered_amount].init_as_poly(max_y, med_y, split, color);
@@ -322,11 +297,11 @@ void draw_pixel_to_buf(int16_t x, uint16_t color)
 	line_buffer[x] = color;
 }
 
-//draws the linebuffer to the lcd
+//draws the linebuffer to the lcd, some loop unrolling
 void draw_linebuffer()
 {
 	set_pins();
-	for (int32_t i = 0; i < SCREENX; i+=10)
+	for (int32_t i = 0; i < SCREENX; i+=20)
 	{
 		set_data(line_buffer[i]);
 		pulse_pins();
@@ -348,6 +323,26 @@ void draw_linebuffer()
 		pulse_pins();
 		set_data(line_buffer[i+9]);
 		pulse_pins();
+		set_data(line_buffer[i+10]);
+		pulse_pins();
+		set_data(line_buffer[i+11]);
+		pulse_pins();
+		set_data(line_buffer[i+12]);
+		pulse_pins();
+		set_data(line_buffer[i+13]);
+		pulse_pins();
+		set_data(line_buffer[i+14]);
+		pulse_pins();
+		set_data(line_buffer[i+15]);
+		pulse_pins();
+		set_data(line_buffer[i+16]);
+		pulse_pins();
+		set_data(line_buffer[i+17]);
+		pulse_pins();
+		set_data(line_buffer[i+18]);
+		pulse_pins();
+		set_data(line_buffer[i+19]);
+		pulse_pins();
 	}
 	unset_pins();
 }
@@ -357,6 +352,12 @@ void draw_linebuffer()
 //so call this only once per loop, since this draws the frame
 void flush_to_lcd()
 {
+	for (int32_t i = 0; i < buffered_amount; i++)
+	{
+		start_drawing[i] = drawable_buffer[i].get_start();
+		end_drawing[i] = drawable_buffer[i].get_end();
+	}
+	
 	command_lcd(0x4e, 0);
 	command_lcd(0x4f, 0);
 	lcd_com(0x22);
@@ -369,6 +370,8 @@ void flush_to_lcd()
 		//iterate thru all drawable objects
 		for (int32_t i = 0; i < buffered_amount; i++)
 		{
+			if (start_drawing[i] > y) continue;
+			if (end_drawing[i] < y) continue;
 			//draw 1 pixel height y-slice of the drawable object to the linebuffer
 			drawable_buffer[i].draw(y);
 		}
@@ -407,62 +410,5 @@ void sort_points_by_y(point &min, point &med, point &max)
 		temp = max;
 		max = med;
 		med = temp;
-	}
-}
-
-
-//finds intersection point of 2 lines, x0,y0 -> x1,y1 and horizontal line at target_y, target_x is to get min/max pixel of the intersection point
-int16_t find_x_along_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t target_x, int16_t target_y)
-{
-	int16_t found_min_x = 16000;
-	int16_t found_max_x = -16000;
-	
-	//basic line-drawing method
-	int16_t sx, sy, err, e2;
-	int16_t dx = lcd_abs(x1-x0);
-	int16_t dy = lcd_abs(y1-y0);
-	
-	(x0 < x1) ? sx = 1 : sx = -1;
-	(y0 < y1) ? sy = 1 : sy = -1;
-	err = dx-dy;
-
-	for(;;)
-	{
-		//since we're only using draw_pixel, we do not have to check for limits
-		//as draw_pixel does it by itself
-		//draw_pixel(x0,y0,color);
-		
-		if (y0 == target_y)
-		{
-			//if we need smallest val possible
-			if (x0 > found_max_x)
-			{
-				found_max_x = x0;
-			} else if(x0 < found_min_x) {
-				found_min_x = x0;
-			}
-		}
-		
-		if ((x0 == x1) && (y0 == y1))
-		{
-			break;
-		}
-		e2 = err*2;
-		if (e2 > -dy) {
-			err -= dy;
-			x0 += sx;
-		}
-		if (e2 < dx)
-		{
-			err += dx;
-			y0 += sy;
-		}
-	}
-
-	if (target_x > found_min_x)
-	{
-		return found_min_x;
-	} else {
-		return found_max_x;
 	}
 }
