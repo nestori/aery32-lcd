@@ -9,10 +9,10 @@
 //returns sine of given number, input has 1 degree accuracy
 float lcd_sin(float z)
 {
-	//clamp input to 0-359
-	//if (x < 0) x += 360;
-	//if (x >= 360) x -= 360;
 	int16_t x = z;
+	
+	if (x < 0) x = 360 - (-x)%360;
+	
 	x %=360;
 	
 	//use 90-value look-up table to get correct value

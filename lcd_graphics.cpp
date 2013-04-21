@@ -218,30 +218,33 @@ void Drawable::draw(int16_t yline)
 	}
 }
 
-void draw_b_pixel(int16_t x0, int16_t y0, uint16_t color)
+void draw_pixel(int16_t x0, int16_t y0, uint16_t color)
 {
 	//pixel is 1x1 so we use 2 times x0, y0
 	drawable_buffer[buffered_amount].init_as_line(x0, y0, x0, y0, color);
 }
 
-void draw_b_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color)
+void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color)
 {
 	drawable_buffer[buffered_amount].init_as_line(x0, y0, x1, y1, color);
 }
 
-void draw_b_rect(int16_t x0, int16_t y0, int16_t xsize, int16_t ysize, uint16_t color)
+void draw_rect(int16_t x0, int16_t y0, int16_t xsize, int16_t ysize, uint16_t color)
 {
 	//draw bufferect rectangle
 	drawable_buffer[buffered_amount].init_as_rect(x0, y0, xsize, ysize, color);
 }
 
-void draw_b_text(char *text, int16_t x, int16_t y, uint16_t color, uint16_t max_width)
+void draw_text(char *text, int16_t x, int16_t y, uint16_t color, uint16_t max_width)
 {
 	drawable_buffer[buffered_amount].init_as_text(text, x, y, color, max_width);
 }
 
-void draw_b_poly(polygon p, uint16_t color)
+void draw_poly(polygon p, uint16_t color)
 {
+	//check if poly is 0-height
+	if ((p.y0 == p.y1) && (p.y0 == p.y2) && ( p.y1 == p.y2)) return;
+	
 	//check if we need to split the triangle in 2
 	bool need_to_split = true;
 	
@@ -283,7 +286,7 @@ void draw_line_to_buf(int16_t x, int16_t length, uint16_t color)
 	{
 		length = SCREENX-x;
 	}
-	for (int32_t i = x; i < x+length; i++)
+	for (int32_t i = x; i < length+x; i++)
 	{
 		line_buffer[i] = color;
 	}

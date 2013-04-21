@@ -7,6 +7,8 @@
 #include "lcd_init.h"
 #include "lcd_graphics.h"
 #include "lcd_math.h"
+#include "linear_algebra.h"
+#include "graphics_3d.h"
 
 #ifdef FORPC
 	#include <iostream>
@@ -22,9 +24,11 @@
 
 int main()
 {
+	set_perspective(1, 100.0);
+	
 	init();
 	//clear the screen
-	draw_b_rect(0,0,320,240,0x0);
+	draw_rect(0,0,320,240,0x0);
 	flush_to_lcd();
 	
 	uint32_t count = 1;
@@ -33,10 +37,11 @@ int main()
 	
 	uint16_t colors[] = {0xF800, 0xF600, 0x7E0, 0x1F, 0xFFFF,0xF800, 0xF600, 0x7E0, 0x1F, 0xFFFF,0xF800, 0xF600, 0x7E0, 0x1F, 0xFFFF};
 
-	int16_t centerx = 320/2;
-	int16_t centery = 240/2;
+	//int16_t centerx = 320/2;
+	//int16_t centery = 240/2;
 	
-	int16_t polysize = 30;
+	//int16_t polysize = 30;
+	
 	
 	int16_t rot = 0;
 	
@@ -51,7 +56,7 @@ int main()
 		rot++;
 		if (rot >= 360) rot = 0;
 		
-
+		/*
 		for (int i = 0; i < 15; i++)
 		{
 			poly.x0 = (i-7)*20+centerx+lcd_cos(rot+120)*polysize;
@@ -72,11 +77,80 @@ int main()
 			poly.y2 = 20+centery+lcd_sin(rot+120*3)*polysize;
 			draw_b_poly(poly, colors[i]);
 		}
-
+		*/
  
-		draw_b_text(str,0,220,0xF800);
-		//draw_b_text(str2,10,10,0xF600, 60);
+				translate_camera(Vector3D(0,1,4));		
+		rotate_camera(20,lcd_sin(rot)*180.0, 0);
 		
+		Polygon3D p;
+		
+		/*
+		p.p0 = Vector3D(lcd_cos(2*rot)*3.5, -3.5, -10 + lcd_sin(2*rot)*3.5);
+		p.p1 = Vector3D(lcd_cos(2*rot+120*2)*3.5, -3.5, -10 + lcd_sin(2*rot+120*2)*3.5);
+		p.p2 = Vector3D(lcd_cos(2*rot+120)*3.5, -3.5, -10 + lcd_sin(2*rot+120)*3.5);
+		*/
+		
+		//front
+		p.p0 = Vector3D(-1, 1, 1);
+		p.p1 = Vector3D(-1,-1, 1);
+		p.p2 = Vector3D( 1,-1, 1);
+		draw_poly3D(p, colors[0]);
+		
+		p.p0 = Vector3D(-1, 1, 1);
+		p.p1 = Vector3D( 1,-1, 1);
+		p.p2 = Vector3D( 1, 1, 1);
+		draw_poly3D(p, colors[0]);
+		
+		//left side
+		p.p0 = Vector3D(-1, 1, -1);
+		p.p1 = Vector3D(-1,-1, -1);
+		p.p2 = Vector3D(-1,-1, 1);
+		draw_poly3D(p, colors[1]);
+		
+		p.p0 = Vector3D(-1, 1,-1);
+		p.p1 = Vector3D(-1,-1, 1);
+		p.p2 = Vector3D(-1, 1, 1);
+		draw_poly3D(p, colors[1]);
+		
+		//right side
+		
+		p.p0 = Vector3D( 1, 1, 1);
+		p.p1 = Vector3D( 1,-1, 1);
+		p.p2 = Vector3D( 1,-1,-1);
+		draw_poly3D(p, colors[2]);
+		
+		p.p0 = Vector3D( 1, 1, 1);
+		p.p1 = Vector3D( 1,-1,-1);
+		p.p2 = Vector3D( 1, 1,-1);
+		draw_poly3D(p, colors[2]);
+		
+		//backside
+		
+		p.p0 = Vector3D( 1, 1,-1);
+		p.p1 = Vector3D( 1,-1,-1);
+		p.p2 = Vector3D(-1,-1,-1);
+		draw_poly3D(p, colors[3]);
+		
+		p.p0 = Vector3D( 1, 1,-1);
+		p.p1 = Vector3D(-1,-1,-1);
+		p.p2 = Vector3D(-1, 1,-1);
+		draw_poly3D(p,colors[3]);
+		
+		//top
+		
+		p.p0 = Vector3D(-1, 1,-1);
+		p.p1 = Vector3D(-1, 1, 1);
+		p.p2 = Vector3D( 1, 1, 1);
+		draw_poly3D(p, colors[4]);
+		
+		p.p0 = Vector3D(-1, 1,-1);
+		p.p1 = Vector3D( 1, 1, 1);
+		p.p2 = Vector3D( 1, 1,-1);
+		draw_poly3D(p, colors[4]);
+		
+		
+		draw_poly_buffer();
+		draw_text(str,0,220,0xF800);
 		flush_to_lcd();
 		
 		END_MEASURING_CYCLES(count);
@@ -113,18 +187,78 @@ int main()
 		rot++;
 		if (rot >= 360) rot = 0;
 		
-		for (int i = 0; i < 15; i++)
-		{
-			poly.x0 = (i-7)*20+centerx+lcd_cos(rot+120)*polysize;
-			poly.y0 = centery+lcd_sin(rot+120)*polysize;
-			poly.x1 = (i-7)*20+centerx+lcd_cos(rot+120*2)*polysize;
-			poly.y1 = centery+lcd_sin(rot+120*2)*polysize;
-			poly.x2 = (i-7)*20+centerx+lcd_cos(rot+120*3)*polysize;
-			poly.y2 = centery+lcd_sin(rot+120*3)*polysize;
-			draw_b_poly(poly, colors[i]);
-		}
+		translate_camera(Vector3D(0,1,4));		
+		rotate_camera(20,lcd_sin(rot)*180.0, 0);
 		
-		draw_b_text(str,0,220,0xF800);
+		Polygon3D p;
+		
+		/*
+		p.p0 = Vector3D(lcd_cos(2*rot)*3.5, -3.5, -10 + lcd_sin(2*rot)*3.5);
+		p.p1 = Vector3D(lcd_cos(2*rot+120*2)*3.5, -3.5, -10 + lcd_sin(2*rot+120*2)*3.5);
+		p.p2 = Vector3D(lcd_cos(2*rot+120)*3.5, -3.5, -10 + lcd_sin(2*rot+120)*3.5);
+		*/
+		
+		//front
+		p.p0 = Vector3D(-1, 1, 1);
+		p.p1 = Vector3D(-1,-1, 1);
+		p.p2 = Vector3D( 1,-1, 1);
+		draw_poly3D(p, colors[0]);
+		
+		p.p0 = Vector3D(-1, 1, 1);
+		p.p1 = Vector3D( 1,-1, 1);
+		p.p2 = Vector3D( 1, 1, 1);
+		draw_poly3D(p, colors[0]);
+		
+		//left side
+		p.p0 = Vector3D(-1, 1, -1);
+		p.p1 = Vector3D(-1,-1, -1);
+		p.p2 = Vector3D(-1,-1, 1);
+		draw_poly3D(p, colors[1]);
+		
+		p.p0 = Vector3D(-1, 1,-1);
+		p.p1 = Vector3D(-1,-1, 1);
+		p.p2 = Vector3D(-1, 1, 1);
+		draw_poly3D(p, colors[1]);
+		
+		//right side
+		
+		p.p0 = Vector3D( 1, 1, 1);
+		p.p1 = Vector3D( 1,-1, 1);
+		p.p2 = Vector3D( 1,-1,-1);
+		draw_poly3D(p, colors[2]);
+		
+		p.p0 = Vector3D( 1, 1, 1);
+		p.p1 = Vector3D( 1,-1,-1);
+		p.p2 = Vector3D( 1, 1,-1);
+		draw_poly3D(p, colors[2]);
+		
+		//backside
+		
+		p.p0 = Vector3D( 1, 1,-1);
+		p.p1 = Vector3D( 1,-1,-1);
+		p.p2 = Vector3D(-1,-1,-1);
+		draw_poly3D(p, colors[3]);
+		
+		p.p0 = Vector3D( 1, 1,-1);
+		p.p1 = Vector3D(-1,-1,-1);
+		p.p2 = Vector3D(-1, 1,-1);
+		draw_poly3D(p,colors[3]);
+		
+		//top
+		
+		p.p0 = Vector3D(-1, 1,-1);
+		p.p1 = Vector3D(-1, 1, 1);
+		p.p2 = Vector3D( 1, 1, 1);
+		draw_poly3D(p, colors[4]);
+		
+		p.p0 = Vector3D(-1, 1,-1);
+		p.p1 = Vector3D( 1, 1, 1);
+		p.p2 = Vector3D( 1, 1,-1);
+		draw_poly3D(p, colors[4]);
+		
+		
+		draw_poly_buffer();
+		draw_text(str,0,220,0xF800);
 		flush_to_lcd();
 
 		

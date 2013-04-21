@@ -13,12 +13,22 @@
 #include <string.h>
 #include <algorithm>
 
+struct Polygon3D;
+
 struct point{
 	int16_t x,y;
 };
 
 //basic triangle polygon
 struct polygon{
+	polygon() {;}
+	polygon(int16_t a0, int16_t b0, int16_t a1, int16_t b1, int16_t a2, int16_t b2)
+	{
+		x0 = a0; y0 = b0;
+		x1 = a1; y1 = b1;
+		x2 = a2; y2 = b2;
+	}
+
 	int16_t x0, y0;
 	int16_t x1, y1;
 	int16_t x2, y2;
@@ -39,11 +49,11 @@ private:
 	uint8_t type;
 };
 
-void draw_b_pixel(int16_t x0, int16_t y0, uint16_t color);
-void draw_b_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
-void draw_b_rect(int16_t x0, int16_t y0, int16_t xsize, int16_t ysize, uint16_t color);
-void draw_b_poly(polygon p, uint16_t color);
-void draw_b_text(char *text, int16_t x, int16_t y, uint16_t color, uint16_t max_width = SCREENX);
+void draw_pixel(int16_t x0, int16_t y0, uint16_t color);
+void draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
+void draw_rect(int16_t x0, int16_t y0, int16_t xsize, int16_t ysize, uint16_t color);
+void draw_poly(polygon p, uint16_t color);
+void draw_text(char *text, int16_t x, int16_t y, uint16_t color, uint16_t max_width = SCREENX);
 
 void flush_to_lcd();
 
