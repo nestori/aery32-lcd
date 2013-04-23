@@ -15,7 +15,6 @@
 struct Polygon3D
 {	
 	Vector3D p0, p1, p2;
-	uint16_t color;
 };
 
 //draws 3d polygon to the buffer, with perspective matrix

@@ -14,17 +14,21 @@ void sort_points_by_y(point &a, point &b, point &c);
 //this will be drawn for each y-line. and each y-line gets it's own pixels from drawable_buffer primitives
 uint16_t line_buffer[SCREENX] = {};
 
+//buffer sizes
+
+const uint16_t buf_amount_max = 150;
+const uint16_t text_amount_max = 512;
 
 //drawable primitives buffered here, for each drawn frame
 uint16_t buffered_amount = 0;
-Drawable drawable_buffer[150];
+Drawable drawable_buffer[buf_amount_max];
 
-uint16_t start_drawing[150];
-uint16_t end_drawing[150];
+uint16_t start_drawing[buf_amount_max];
+uint16_t end_drawing[buf_amount_max];
 
 //text buffer pointer points to place where text can be written, on text_buffer
 uint16_t text_buffer_pointer = 0;
-char text_buffer[512];
+char text_buffer[text_amount_max];
 
 
 void Drawable::init_as_rect(int16_t x, int16_t y, int16_t xsize, int16_t ysize, uint16_t color_in)
@@ -114,7 +118,7 @@ void Drawable::init_as_line(int16_t x0_, int16_t y0_, int16_t x1_, int16_t y1_, 
 
 void Drawable::init_as_text(char *text, int16_t x_in, int16_t y_in, uint16_t color_in, uint16_t max_width)
 {
-	if (text_buffer_pointer+strlen(text) >= 512) return;
+	if (text_buffer_pointer+strlen(text) >= text_amount_max) return;
 	buffered_amount++;
 	
 	//x2 is where the actual text starts in text_buffer
@@ -177,12 +181,13 @@ void Drawable::draw(int16_t yline)
 	
 	//draw line
 	case 3:
-
-		if (x0 == x1)
+		start_x = x0;
+		if (x0 != x1)
 		{
-			start_x = x0;
-		} else {
-			start_x = x0 + (x1 - x0) * (yline - y0) / (y1 - y0);
+			if (y1 != y0)
+			{
+				start_x = x0 + (x1 - x0) * (yline - y0) / (y1 - y0);
+			}
 		}
 		
 		draw_line_to_buf(start_x, 1, color);
@@ -245,20 +250,14 @@ void draw_poly(polygon p, uint16_t color)
 	//check if poly is 0-height
 	if ((p.y0 == p.y1) && (p.y0 == p.y2) && ( p.y1 == p.y2)) return;
 	
-	//check if we need to split the triangle in 2
-	bool need_to_split = true;
-	
-	if ((p.y0 == p.y1) || (p.y1 == p.y2) || (p.y0 == p.y2))
-	{
-		need_to_split = false;
-	}
-	
 	point min_y, med_y, max_y, split;
 	min_y.x = p.x0; min_y.y = p.y0;
 	med_y.x = p.x1; med_y.y = p.y1;
 	max_y.x = p.x2; max_y.y = p.y2;
 	sort_points_by_y(min_y, med_y, max_y);
-	if (need_to_split)
+	
+	//check if we need to split the triangle in 2
+	if (!((p.y0 == p.y1) || (p.y1 == p.y2) || (p.y0 == p.y2)))
 	{
 		//we want to split the triangle along the med point, so new point has same y as med point
 		split.y = med_y.y;
@@ -272,7 +271,7 @@ void draw_poly(polygon p, uint16_t color)
 	}
 }
 
-//draws a line of pixels to the linebuffer. should not be called.
+//draws a line of pixels to the linebuffer.
 void draw_line_to_buf(int16_t x, int16_t length, uint16_t color)
 {
 	if (x >= SCREENX) return;

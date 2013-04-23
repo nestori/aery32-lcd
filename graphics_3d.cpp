@@ -1,20 +1,29 @@
 #include "graphics_3d.h"
 
+//struct for buffering polys, because it is much smaller than Polygon3D
+//and does not fit into polygon in lcd_graphics
+struct Buf_polygon{
+	int16_t x0, y0, x1, y1, x2, y2;
+	float depth;
+	uint16_t color;
+};
+
 //helper functions. forward declare
 Vector3D to_screen_coords(Vector3D v);
-void selection_sort(Polygon3D *a, uint16_t len);
+void selection_sort(Buf_polygon *a, uint16_t len);
+
 
 //the perspective matrix
 Matrix Perspective_matrix;
-
 
 //camera rotation and position
 Matrix camera_rot = get_identity();
 Vector3D camera_pos;
 
 //another buffer :D
+const uint16_t buffered_poly_max = 35;
 uint16_t buffered_poly_amount = 0;
-Polygon3D polygon_buffer[35];
+Buf_polygon polygon_buffer[buffered_poly_max];
 
 
 void draw_poly3D(Polygon3D poly, uint16_t color)
@@ -25,17 +34,16 @@ void draw_poly3D(Polygon3D poly, uint16_t color)
 	poly.p2 = camera_rot.multiply(poly.p2)-camera_pos;
 	
 	Vector3D poly_normal = (poly.p0 - poly.p2).cross(poly.p0 - poly.p1);
-	float visible = poly_normal.dot(poly.p0-camera_pos);
 	
 	//this is backface-culling check for counter-clockwise winding of the polygon.
-	if (visible < 0) return;
+	if (poly_normal.dot(poly.p0) < 0) return;
 	
 	
 	//lets calculate distance value for depth-sorting algorithm
 	//no need to put -camera_pos.data[n]*3 aftear each calculation since we do that earlier
-	int16_t depth_x = (poly.p0.data[0] + poly.p1.data[0] + poly.p2.data[0]);
-	int16_t depth_y = (poly.p0.data[1] + poly.p1.data[1] + poly.p2.data[1]);
-	int16_t depth_z = -(poly.p0.data[2] + poly.p1.data[2] + poly.p2.data[2]);
+	float depth_x = (poly.p0.data[0] + poly.p1.data[0] + poly.p2.data[0]);
+	float depth_y = (poly.p0.data[1] + poly.p1.data[1] + poly.p2.data[1]);
+	float depth_z = (poly.p0.data[2] + poly.p1.data[2] + poly.p2.data[2]);
 	
 	//1st we translate the 3d vectors (points) with perspective matrix, they have vals between -1 and 1.
 	//then we translate those coordinates to screen coords
@@ -49,18 +57,26 @@ void draw_poly3D(Polygon3D poly, uint16_t color)
 	if (poly.p1.data[2] < 0) return;
 	if (poly.p2.data[2] < 0) return;
 	
+	Buf_polygon b_poly;
+	
+	b_poly.x0 = poly.p0.data[0];
+	b_poly.y0 = poly.p0.data[1];
+	
+	b_poly.x1 = poly.p1.data[0];
+	b_poly.y1 = poly.p1.data[1];
+	
+	b_poly.x2 = poly.p2.data[0];
+	b_poly.y2 = poly.p2.data[1];
+	
+	b_poly.color = color;
 	
 	//store distance from camera to triangle center to p0's data[2], which used to represent 1st points z-val
 	//we dont need that z-value anymore
 	//if needed, just change to 3 which is w. remember to change that in sort func too
 	//no need to take sqrt()
-	poly.p0.data[2] = depth_x*depth_x + depth_y*depth_y + depth_z*depth_z;
+	b_poly.depth = depth_x*depth_x + depth_y*depth_y + depth_z*depth_z;
 	
-	
-	//color is color
-	poly.color = color;
-	
-	polygon_buffer[buffered_poly_amount] = poly;
+	polygon_buffer[buffered_poly_amount] = b_poly;
 	buffered_poly_amount++;
 }
 
@@ -72,11 +88,11 @@ void draw_poly_buffer()
 	//loop through all polys and draw them to 2d poly buffer
 	for (int32_t i = 0; i < buffered_poly_amount; i++)
 	{
-		draw_poly(polygon(polygon_buffer[i].p0.data[0], polygon_buffer[i].p0.data[1],
-					polygon_buffer[i].p1.data[0], polygon_buffer[i].p1.data[1],
-					polygon_buffer[i].p2.data[0], polygon_buffer[i].p2.data[1]),
-					polygon_buffer[i].color
-					);
+		draw_poly(polygon(	polygon_buffer[i].x0, polygon_buffer[i].y0,
+							polygon_buffer[i].x1, polygon_buffer[i].y1,
+							polygon_buffer[i].x2, polygon_buffer[i].y2
+						), polygon_buffer[i].color);
+							
 	}
 	
 	//reset poly amount. ready for next frame
@@ -85,16 +101,16 @@ void draw_poly_buffer()
 
 //selectionsort for polygons. we need to sort these by depth
 //std::sort works but it is ~5kb larger
-void selection_sort(Polygon3D *a, uint16_t len)
+void selection_sort(Buf_polygon *a, uint16_t len)
 {
 	int32_t max = 0;
-	Polygon3D temp;
+	Buf_polygon temp;
 	for (int32_t i = 0; i < len; i++)
 	{
 		max = i;
 		for (int j = i+1; j < len; j++)
 		{
-			if (a[j].p0.data[2] > a[max].p0.data[2]) max = j;
+			if (a[j].depth > a[max].depth) max = j;
 		}
 		//exchange a[i] with a[min]
 		temp = a[i];

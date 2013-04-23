@@ -13,6 +13,7 @@
 #ifdef FORPC
 	#include <iostream>
 	extern sf::RenderWindow sfmlwindow;
+	//dummy funcs
 	#define START_MEASURING_CYCLES()
 	#define END_MEASURING_CYCLES(rv) ((rv) = 0)
 #endif
@@ -33,7 +34,6 @@ int main()
 	
 	uint32_t count = 1;
 	char str[10];
-	//char str2[] = "buffered text, buffered text again. text text text";
 	
 	uint16_t colors[] = {0xF800, 0xF600, 0x7E0, 0x1F, 0xFFFF,0xF800, 0xF600, 0x7E0, 0x1F, 0xFFFF,0xF800, 0xF600, 0x7E0, 0x1F, 0xFFFF};
 
@@ -83,12 +83,6 @@ int main()
 		rotate_camera(20,lcd_sin(rot)*180.0, 0);
 		
 		Polygon3D p;
-		
-		/*
-		p.p0 = Vector3D(lcd_cos(2*rot)*3.5, -3.5, -10 + lcd_sin(2*rot)*3.5);
-		p.p1 = Vector3D(lcd_cos(2*rot+120*2)*3.5, -3.5, -10 + lcd_sin(2*rot+120*2)*3.5);
-		p.p2 = Vector3D(lcd_cos(2*rot+120)*3.5, -3.5, -10 + lcd_sin(2*rot+120)*3.5);
-		*/
 		
 		//front
 		p.p0 = Vector3D(-1, 1, 1);
@@ -192,12 +186,6 @@ int main()
 		
 		Polygon3D p;
 		
-		/*
-		p.p0 = Vector3D(lcd_cos(2*rot)*3.5, -3.5, -10 + lcd_sin(2*rot)*3.5);
-		p.p1 = Vector3D(lcd_cos(2*rot+120*2)*3.5, -3.5, -10 + lcd_sin(2*rot+120*2)*3.5);
-		p.p2 = Vector3D(lcd_cos(2*rot+120)*3.5, -3.5, -10 + lcd_sin(2*rot+120)*3.5);
-		*/
-		
 		//front
 		p.p0 = Vector3D(-1, 1, 1);
 		p.p1 = Vector3D(-1,-1, 1);
@@ -259,6 +247,7 @@ int main()
 		
 		draw_poly_buffer();
 		draw_text(str,0,220,0xF800);
+		
 		flush_to_lcd();
 
 		
